@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <rect width="128" height="128" fill="#3b82f6" rx="20"/>
+  <g transform="translate(24, 32)">
+    <!-- Envelope body -->
+    <rect x="0" y="0" width="80" height="52" fill="white" stroke="#1e40af" stroke-width="3"/>
+    <!-- Envelope flap -->
+    <path d="M 0,0 L 40,20 L 80,0" fill="#e0e7ff" stroke="#1e40af" stroke-width="3"/>
+    <!-- Horizontal lines (representing text) -->
+    <line x1="10" y1="30" x2="70" y2="30" stroke="#93c5fd" stroke-width="2"/>
+    <line x1="10" y1="38" x2="60" y2="38" stroke="#93c5fd" stroke-width="2"/>
+  </g>
+</svg>
