@@ -371,11 +371,21 @@ function readFile(file, fileExtension) {
 
 function parseCSV(text) {
     const lines = text.split('\n').filter(line => line.trim());
-    const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+    if (lines.length === 0) return [];
+    
+    // Detect delimiter (comma or tab)
+    const firstLine = lines[0];
+    const commaCount = (firstLine.match(/,/g) || []).length;
+    const tabCount = (firstLine.match(/\t/g) || []).length;
+    const delimiter = tabCount > commaCount ? '\t' : ',';
+    
+    // Parse headers
+    const headers = parseCSVLine(lines[0], delimiter);
     
     const data = [];
     for (let i = 1; i < lines.length; i++) {
-        const values = lines[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+        if (!lines[i].trim()) continue;
+        const values = parseCSVLine(lines[i], delimiter);
         const row = {};
         headers.forEach((header, index) => {
             row[header] = values[index] || '';
@@ -384,6 +394,38 @@ function parseCSV(text) {
     }
     
     return data;
+}
+
+function parseCSVLine(line, delimiter) {
+    const result = [];
+    let current = '';
+    let inQuotes = false;
+    
+    for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        
+        if (char === '"') {
+            if (inQuotes && line[i + 1] === '"') {
+                // Escaped quote
+                current += '"';
+                i++; // Skip next quote
+            } else {
+                // Toggle quote state
+                inQuotes = !inQuotes;
+            }
+        } else if (char === delimiter && !inQuotes) {
+            // Field separator
+            result.push(current.trim());
+            current = '';
+        } else {
+            current += char;
+        }
+    }
+    
+    // Add the last field
+    result.push(current.trim());
+    
+    return result;
 }
 
 function displayDataPreview() {
