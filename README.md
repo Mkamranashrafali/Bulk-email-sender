@@ -53,17 +53,29 @@ A powerful Chrome Extension that transforms CSV or Excel data into personalized 
    Since we can't generate PNG files directly, you have two options:
    
    **Option A - Use Online Converter:**
-   - Open `icon-generator.html` in your browser
-   - Click "Generate Icons" 
-   - Download all three icon sizes
-   - Save them as `icon16.png`, `icon48.png`, `icon128.png` in the `icons` folder
-   
-   **Option B - Use SVG (Simple):**
-   - The extension will work with the SVG icon provided
-   - For production, convert `icons/icon.svg` to PNG using an online tool like:
+   - Convert the `icons/icon.svg` to PNG using an online tool like:
      - https://convertio.co/svg-png/
      - https://cloudconvert.com/svg-to-png
    - Create three sizes: 16x16, 48x48, 128x128
+   - Save them as `icon16.png`, `icon48.png`, `icon128.png` in the `icons` folder
+   
+   **Option B - Use PowerShell Script:**
+   ```powershell
+   cd "c:\Users\Lenovo\Desktop\email extenssion\icons"
+   
+   # Create simple colored PNG files as placeholders
+   Add-Type -AssemblyName System.Drawing
+   
+   $sizes = @(16, 48, 128)
+   foreach ($size in $sizes) {
+       $bitmap = New-Object System.Drawing.Bitmap($size, $size)
+       $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+       $graphics.Clear([System.Drawing.Color]::FromArgb(59, 130, 246))
+       $bitmap.Save("icon$size.png", [System.Drawing.Imaging.ImageFormat]::Png)
+       $graphics.Dispose()
+       $bitmap.Dispose()
+   }
+   ```
 
 4. **Load Extension in Chrome**:
    - Open Chrome and go to `chrome://extensions/`
@@ -150,18 +162,19 @@ Your Name
 3. Check for any formatting issues
 4. Click "Ready to Send →"
 
-### Step 5: Send Emails
-1. Choose sending mode:
-   - **Individual**: Opens each email one by one (2-second delay)
-   - **Bulk**: Opens all emails rapidly (0.5-second delay)
+### Step 5: Send Emails (Manual Control)
+1. Review the recipient list with sending status for each email
+2. Click "Send Next Pending Email" to open the next unsent email in your email client
+3. After sending the email manually, click the ✓ button next to that recipient to mark it as sent
+4. Repeat until all emails are sent
+5. View the sending report with success/failure counts
 
-2. Select email client:
-   - **Gmail**: Opens Gmail compose window
-   - **Default**: Uses system email app
-
-3. Click "Start Sending"
-4. Review sending report (success/failure counts)
-5. Click "Start New Campaign" to reset
+**Manual Sending Benefits:**
+- Full control over each email
+- Ability to personalize further in email client
+- Track exactly which emails have been sent
+- **Toggle status**: Click ✓ button once to mark as sent, click again to mark as pending
+- Pause and resume sending anytime
 
 ## 🎨 Customization
 
@@ -204,13 +217,15 @@ email extenssion/
 ├── popup.html            # Main UI
 ├── styles.css            # Dark theme styling
 ├── script.js             # Core functionality
+├── sample-data.csv       # Sample data for testing
+├── README.md             # This documentation
 ├── lib/
 │   └── xlsx.full.min.js  # Excel parsing library
-├── icons/
-│   ├── icon16.png        # Toolbar icon
-│   ├── icon48.png        # Extension management icon
-│   └── icon128.png       # Chrome Web Store icon
-└── README.md             # This file
+└── icons/
+    ├── icon.svg          # Source SVG icon
+    ├── icon16.png        # Toolbar icon (16x16)
+    ├── icon48.png        # Extension management icon (48x48)
+    └── icon128.png       # Chrome Web Store icon (128x128)
 ```
 
 ### Permissions Used

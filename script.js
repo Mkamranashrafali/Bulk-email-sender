@@ -247,7 +247,12 @@ function goToStep(stepNumber) {
                 displayEmailPreview();
                 break;
             case 5:
+                // Initialize sending status if not already done
+                if (!state.sendingStatus.details) {
+                    state.sendingStatus = { sent: 0, failed: 0, details: [] };
+                }
                 displayRecipientList();
+                updateSendingStats();
                 break;
         }
         
@@ -719,101 +724,105 @@ function displayRecipientList() {
     
     container.innerHTML = state.personalizedEmails.map((email, index) => {
         const status = state.sendingStatus.details[index] || { status: 'pending' };
+        
         return `
             <div class="recipient-item">
                 <div class="recipient-info">
                     <div class="recipient-email">${email.recipient}</div>
                     <div class="recipient-details">${email.subject}</div>
                 </div>
-                <span class="recipient-status status-${status.status}">${status.status}</span>
+                <div class="recipient-actions">
+                    <span class="recipient-status status-${status.status}">${status.status}</span>
+                    <button class="mark-sent-btn" data-index="${index}" title="Click to toggle status">✓</button>
+                </div>
             </div>
         `;
     }).join('');
+    
+    // Add event listeners for mark-sent buttons
+    document.querySelectorAll('.mark-sent-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const index = parseInt(this.getAttribute('data-index'));
+            toggleEmailStatus(index);
+        });
+    });
+}function toggleEmailStatus(index) {
+    if (!state.sendingStatus.details[index]) {
+        state.sendingStatus.details[index] = { status: 'pending' };
+    }
+    
+    const currentStatus = state.sendingStatus.details[index].status;
+    
+    if (currentStatus === 'pending') {
+        // Change to sent
+        state.sendingStatus.details[index].status = 'sent';
+        state.sendingStatus.sent = (state.sendingStatus.sent || 0) + 1;
+    } else if (currentStatus === 'sent') {
+        // Change back to pending
+        state.sendingStatus.details[index].status = 'pending';
+        state.sendingStatus.sent = Math.max(0, (state.sendingStatus.sent || 0) - 1);
+    }
+    
+    displayRecipientList();
+    updateSendingStats();
+    saveState();
+}
+
+function updateSendingStats() {
+    const sentCount = state.sendingStatus.sent || 0;
+    const totalCount = state.personalizedEmails.length;
+    const pendingCount = totalCount - sentCount;
+
+    // Update any UI elements that show stats
+    const sentElement = document.getElementById('sentCount');
+    const failedElement = document.getElementById('failedCount');
+
+    if (sentElement) sentElement.textContent = sentCount;
+    if (failedElement) failedElement.textContent = state.sendingStatus.failed || 0;
 }
 
 async function startSending() {
     const startBtn = document.getElementById('startSending');
     const progressContainer = document.getElementById('sendingProgress');
     const reportContainer = document.getElementById('sendingReport');
-    
-    startBtn.disabled = true;
-    progressContainer.style.display = 'block';
-    reportContainer.style.display = 'none';
-    
-    state.sendingStatus = { sent: 0, failed: 0, details: [] };
-    
-    if (state.sendingMode === 'individual') {
-        await sendIndividual();
-    } else {
-        await sendBulk();
+
+    // Find the next pending email
+    const nextPendingIndex = state.personalizedEmails.findIndex((email, index) => {
+        const status = state.sendingStatus.details[index] || { status: 'pending' };
+        return status.status === 'pending';
+    });
+
+    if (nextPendingIndex === -1) {
+        alert('All emails have been sent!');
+        return;
     }
-    
-    // Show report
-    progressContainer.style.display = 'none';
-    reportContainer.style.display = 'block';
-    document.getElementById('sentCount').textContent = state.sendingStatus.sent;
-    document.getElementById('failedCount').textContent = state.sendingStatus.failed;
-    
-    // Show reset button
-    document.getElementById('resetAll').style.display = 'inline-flex';
-    startBtn.style.display = 'none';
-    
-    displayRecipientList();
+
+    // Initialize sending status if not already done
+    if (!state.sendingStatus.details) {
+        state.sendingStatus = { sent: 0, failed: 0, details: [] };
+    }
+
+    const email = state.personalizedEmails[nextPendingIndex];
+
+    try {
+        await openEmailClient(email);
+        // Don't automatically mark as sent - let user do it manually
+        displayRecipientList();
+        updateSendingStats();
+    } catch (error) {
+        console.error('Error opening email client:', error);
+        alert('Error opening email client. Please try again.');
+    }
+
     saveState();
 }
 
 async function sendIndividual() {
-    const progressFill = document.getElementById('progressFillSend');
-    const status = document.getElementById('sendingStatus');
-    
-    for (let i = 0; i < state.personalizedEmails.length; i++) {
-        const email = state.personalizedEmails[i];
-        
-        status.textContent = `Opening email ${i + 1} of ${state.personalizedEmails.length}...`;
-        progressFill.style.width = `${((i + 1) / state.personalizedEmails.length) * 100}%`;
-        
-        try {
-            await openEmailClient(email);
-            state.sendingStatus.sent++;
-            state.sendingStatus.details[i] = { status: 'sent' };
-            
-            // Wait 2 seconds between emails
-            await new Promise(resolve => setTimeout(resolve, 2000));
-        } catch (error) {
-            state.sendingStatus.failed++;
-            state.sendingStatus.details[i] = { status: 'failed', error: error.message };
-        }
-        
-        displayRecipientList();
-    }
+    // Removed - now using manual sending
 }
 
 async function sendBulk() {
-    const progressFill = document.getElementById('progressFillSend');
-    const status = document.getElementById('sendingStatus');
-    
-    status.textContent = `Preparing ${state.personalizedEmails.length} emails...`;
-    
-    // Open all emails with slight delay
-    for (let i = 0; i < state.personalizedEmails.length; i++) {
-        const email = state.personalizedEmails[i];
-        
-        status.textContent = `Opening email ${i + 1} of ${state.personalizedEmails.length}...`;
-        progressFill.style.width = `${((i + 1) / state.personalizedEmails.length) * 100}%`;
-        
-        try {
-            await openEmailClient(email);
-            state.sendingStatus.sent++;
-            state.sendingStatus.details[i] = { status: 'sent' };
-        } catch (error) {
-            state.sendingStatus.failed++;
-            state.sendingStatus.details[i] = { status: 'failed', error: error.message };
-        }
-        
-        // Small delay between bulk sends
-        await new Promise(resolve => setTimeout(resolve, 500));
-        displayRecipientList();
-    }
+    // Removed - now using manual sending
 }
 
 async function openEmailClient(email) {
