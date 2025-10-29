@@ -12,10 +12,91 @@
         <div class="step active" id="welcomeScreen">
             <div class="welcome-screen">
                 <div class="welcome-logo">📧</div>
-                <h1 class="welcome-title">Bulk Email Personalizer</h1>
-                <p class="welcome-subtitle">Transform your CSV data into personalized bulk emails with our premium dark-themed interface</p>
-                <button class="welcome-start-btn" id="welcomeStartBtn">
-                    Start Creating ✨
+                <h1 class="welcome-title">Smart Mail Pro</h1>
+                <p class="welcome-tagline">Automate your outreach.</p>
+                
+                <!-- Free Plan Section -->
+                <div class="plan-section free-plan">
+                    <div class="plan-header">
+                        <h3>Free Plan</h3>
+                        <span class="trial-badge">3-Day Free Trial</span>
+                    </div>
+                    <ul class="plan-features">
+                        <li>✓ Send up to 20 emails</li>
+                        <li>✓ Preview enabled</li>
+                    </ul>
+                </div>
+                
+                <!-- Pro Plan Section -->
+                <div class="plan-section pro-plan">
+                    <div class="plan-header">
+                        <h3>Pro Plan</h3>
+                        <span class="pro-badge">✨ Premium</span>
+                    </div>
+                    <ul class="plan-features">
+                        <li>✓ Unlimited email sending</li>
+                        <li>✓ Full variable mapping</li>
+                        <li>✓ Status tracking</li>
+                        <li>✓ Advanced features</li>
+                    </ul>
+                </div>
+                
+                <div class="welcome-actions">
+                    <button class="welcome-start-btn" id="welcomeStartBtn">
+                        Start Free Trial ✨
+                    </button>
+                    <button class="welcome-upgrade-btn" id="welcomeUpgradeBtn">
+                        Upgrade to Pro 🚀
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- License Activation Screen -->
+        <div class="step" id="licenseScreen">
+            <div class="license-activation">
+                <div class="license-header">
+                    <h2>🔓 Upgrade to Pro</h2>
+                    <p class="license-subtitle">Unlock unlimited emails and premium features</p>
+                </div>
+                
+                <div class="license-benefits">
+                    <div class="benefit-item">
+                        <span class="benefit-icon">🚀</span>
+                        <span>Unlimited Sending</span>
+                    </div>
+                    <div class="benefit-item">
+                        <span class="benefit-icon">🎯</span>
+                        <span>Variable Mapping</span>
+                    </div>
+                    <div class="benefit-item">
+                        <span class="benefit-icon">📊</span>
+                        <span>Status Tracking</span>
+                    </div>
+                    <div class="benefit-item">
+                        <span class="benefit-icon">⚡</span>
+                        <span>Priority Support</span>
+                    </div>
+                </div>
+                
+                <div class="license-form">
+                    <div class="form-group">
+                        <label for="licenseKey">Enter License Key</label>
+                        <input type="text" id="licenseKey" placeholder="Enter your license key...">
+                        <div class="license-error" id="licenseError" style="display: none;">
+                            Invalid license key. Please try again.
+                        </div>
+                        <div class="license-success" id="licenseSuccess" style="display: none;">
+                            ✓ License activated successfully!
+                        </div>
+                    </div>
+                    <button class="btn btn-primary btn-activate" id="activateBtn">
+                        Activate Pro 🔑
+                    </button>
+                </div>
+                
+                <button class="btn btn-secondary btn-back-welcome" id="backToWelcomeBtn">
+                    ← Back
                 </button>
             </div>
         </div>
@@ -23,10 +104,20 @@
         <!-- Header -->
         <header class="header" id="mainHeader" style="display: none;">
             <div class="header-content">
-                <h1>📧 Bulk Email Personalizer</h1>
-                <button class="theme-toggle" id="themeToggle" title="Toggle theme">
-                    <span class="theme-icon">🌙</span>
-                </button>
+                <h1>📧 Smart Mail Pro</h1>
+                <div class="header-actions">
+                    <button class="upgrade-btn" id="upgradeBtn" title="Upgrade to Pro">
+                        <span class="upgrade-icon">✨</span>
+                        <span class="upgrade-text">Go Pro</span>
+                    </button>
+                    <button class="theme-toggle" id="themeToggle" title="Toggle theme">
+                        <span class="theme-icon">🌙</span>
+                    </button>
+                </div>
+            </div>
+            <div class="plan-status-bar" id="planStatusBar">
+                <span class="plan-label" id="planLabel">Free Plan</span>
+                <span class="email-limit" id="emailLimit">0/20 emails</span>
             </div>
             <div class="progress-bar">
                 <div class="progress-fill" id="progressFill"></div>

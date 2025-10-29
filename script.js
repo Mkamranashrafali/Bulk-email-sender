@@ -22,7 +22,13 @@ const state = {
         details: []
     },
     hasSeenWelcome: false,
-    theme: 'dark' // 'dark' or 'light'
+    theme: 'dark', // 'dark' or 'light'
+    // Licensing system
+    isPro: false,
+    licenseKey: '',
+    trialStartDate: null,
+    emailsSent: 0,
+    freeEmailLimit: 20
 };
 
 // ============================================
@@ -33,11 +39,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Load saved state from Chrome storage
     await loadState();
     
+    // Initialize trial if first time
+    initializeTrial();
+    
     // Initialize event listeners
     initializeEventListeners();
     
     // Restore UI state
     updateUI();
+    
+    // Update plan status
+    updatePlanStatus();
 });
 
 // ============================================
@@ -76,8 +88,138 @@ function resetState() {
     state.currentPreviewIndex = 0;
     state.sendingStatus = { sent: 0, failed: 0, details: [] };
     state.hasSeenWelcome = false;
-    // Keep theme preference
+    // Keep theme, license, and trial data
     saveState();
+}
+
+// ============================================
+// LICENSING SYSTEM
+// ============================================
+
+function initializeTrial() {
+    if (!state.trialStartDate) {
+        state.trialStartDate = Date.now();
+        state.emailsSent = 0;
+        saveState();
+    }
+}
+
+function isTrialActive() {
+    if (state.isPro) return true;
+    
+    const trialDuration = 3 * 24 * 60 * 60 * 1000; // 3 days in milliseconds
+    const elapsed = Date.now() - state.trialStartDate;
+    return elapsed < trialDuration;
+}
+
+function canSendEmails() {
+    if (state.isPro) return true;
+    return isTrialActive() && state.emailsSent < state.freeEmailLimit;
+}
+
+function getRemainingEmails() {
+    if (state.isPro) return 'Unlimited';
+    return Math.max(0, state.freeEmailLimit - state.emailsSent);
+}
+
+function activateLicense(key) {
+    const validLicenseKey = 'activate@';
+    
+    if (key === validLicenseKey) {
+        state.isPro = true;
+        state.licenseKey = key;
+        saveState();
+        return true;
+    }
+    return false;
+}
+
+function updatePlanStatus() {
+    const planLabel = document.getElementById('planLabel');
+    const emailLimit = document.getElementById('emailLimit');
+    const upgradeBtn = document.getElementById('upgradeBtn');
+    
+    if (planLabel && emailLimit) {
+        if (state.isPro) {
+            planLabel.textContent = 'Pro Plan';
+            planLabel.classList.add('pro');
+            emailLimit.textContent = '∞ Unlimited';
+            emailLimit.classList.remove('warning', 'error');
+        } else {
+            planLabel.textContent = 'Free Plan';
+            planLabel.classList.remove('pro');
+            const remaining = getRemainingEmails();
+            emailLimit.textContent = `${state.emailsSent}/${state.freeEmailLimit} emails`;
+            
+            if (remaining <= 5) {
+                emailLimit.classList.add('error');
+            } else if (remaining <= 10) {
+                emailLimit.classList.add('warning');
+            }
+        }
+    }
+    
+    if (upgradeBtn) {
+        if (state.isPro) {
+            upgradeBtn.classList.add('pro-active');
+            upgradeBtn.querySelector('.upgrade-text').textContent = 'Pro Active';
+            upgradeBtn.querySelector('.upgrade-icon').textContent = '✓';
+        } else {
+            upgradeBtn.classList.remove('pro-active');
+            upgradeBtn.querySelector('.upgrade-text').textContent = 'Go Pro';
+            upgradeBtn.querySelector('.upgrade-icon').textContent = '✨';
+        }
+    }
+}
+
+function showUpgradePrompt(message) {
+    const warningDiv = document.createElement('div');
+    warningDiv.className = 'limit-warning';
+    warningDiv.innerHTML = `
+        <span class="warning-icon">⚠️</span>
+        <span class="warning-text">${message}</span>
+        <span class="upgrade-link" onclick="goToLicenseScreen()">Upgrade Now</span>
+    `;
+    
+    // Insert at the beginning of the current step
+    const currentStep = document.querySelector('.step.active');
+    if (currentStep) {
+        currentStep.insertBefore(warningDiv, currentStep.firstChild);
+        
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            warningDiv.style.animation = 'fadeOut 0.5s ease';
+            setTimeout(() => warningDiv.remove(), 500);
+        }, 5000);
+    }
+}
+
+function checkFeatureAccess(feature) {
+    if (state.isPro) return true;
+    
+    switch (feature) {
+        case 'variableMapping':
+            showUpgradePrompt('Variable mapping is a Pro feature. Upgrade to unlock!');
+            return false;
+        case 'statusTracking':
+            showUpgradePrompt('Status tracking is a Pro feature. Upgrade to unlock!');
+            return false;
+        case 'unlimitedSending':
+            if (!canSendEmails()) {
+                showUpgradePrompt(`You've reached the ${state.freeEmailLimit} email limit. Upgrade for unlimited sending!`);
+                return false;
+            }
+            return true;
+        default:
+            return true;
+    }
+}
+
+function goToLicenseScreen() {
+    const steps = document.querySelectorAll('.step');
+    steps.forEach(step => step.classList.remove('active'));
+    document.getElementById('licenseScreen').classList.add('active');
+    document.getElementById('mainHeader').style.display = 'none';
 }
 
 // ============================================
@@ -92,6 +234,56 @@ function initializeEventListeners() {
             state.hasSeenWelcome = true;
             document.getElementById('mainHeader').style.display = 'block';
             goToStep(1);
+        });
+    }
+    
+    // Welcome screen upgrade button
+    const welcomeUpgradeBtn = document.getElementById('welcomeUpgradeBtn');
+    if (welcomeUpgradeBtn) {
+        welcomeUpgradeBtn.addEventListener('click', () => {
+            goToLicenseScreen();
+        });
+    }
+    
+    // License activation
+    const activateBtn = document.getElementById('activateBtn');
+    const licenseKeyInput = document.getElementById('licenseKey');
+    const backToWelcomeBtn = document.getElementById('backToWelcomeBtn');
+    
+    if (activateBtn) {
+        activateBtn.addEventListener('click', () => {
+            const key = licenseKeyInput.value.trim();
+            const errorDiv = document.getElementById('licenseError');
+            const successDiv = document.getElementById('licenseSuccess');
+            
+            if (activateLicense(key)) {
+                errorDiv.style.display = 'none';
+                successDiv.style.display = 'block';
+                updatePlanStatus();
+                
+                // Redirect to main app after 2 seconds
+                setTimeout(() => {
+                    goToStep(state.currentStep || 1);
+                    document.getElementById('mainHeader').style.display = 'block';
+                }, 2000);
+            } else {
+                successDiv.style.display = 'none';
+                errorDiv.style.display = 'block';
+            }
+        });
+    }
+    
+    if (backToWelcomeBtn) {
+        backToWelcomeBtn.addEventListener('click', () => {
+            goToStep(0);
+        });
+    }
+    
+    // Upgrade button
+    const upgradeBtn = document.getElementById('upgradeBtn');
+    if (upgradeBtn) {
+        upgradeBtn.addEventListener('click', () => {
+            goToLicenseScreen();
         });
     }
     
@@ -185,10 +377,23 @@ function initializeEventListeners() {
     // Navigation buttons
     document.getElementById('step1Next').addEventListener('click', () => goToStep(2));
     document.getElementById('step2Back').addEventListener('click', () => goToStep(1));
-    document.getElementById('step2Next').addEventListener('click', () => goToStep(3));
+    // Step 2 Next - skip Step 3 for free users
+    document.getElementById('step2Next').addEventListener('click', () => {
+        if (state.isPro && state.detectedVariables.length > 0) {
+            goToStep(3); // Pro users with variables go to mapping
+        } else {
+            goToStep(4); // Free users or no variables skip to preview
+        }
+    });
     document.getElementById('step3Back').addEventListener('click', () => goToStep(2));
     document.getElementById('step3Next').addEventListener('click', () => goToStep(4));
-    document.getElementById('step4Back').addEventListener('click', () => goToStep(3));
+    document.getElementById('step4Back').addEventListener('click', () => {
+        if (state.isPro && state.detectedVariables.length > 0) {
+            goToStep(3); // Go back to mapping if it was shown
+        } else {
+            goToStep(2); // Otherwise go back to template
+        }
+    });
     document.getElementById('step4Next').addEventListener('click', () => goToStep(5));
     document.getElementById('step5Back').addEventListener('click', () => goToStep(4));
 }
@@ -226,12 +431,29 @@ function goToStep(stepNumber) {
             document.getElementById(`step${stepNumber}`).classList.add('active');
             document.getElementById('mainHeader').style.display = 'block';
             
-            // Update progress bar
+            // Update progress bar - adjust for free users skipping step 3
+            let totalSteps = 5;
+            let currentStepDisplay = stepNumber;
+            
+            // If free user and on step 4 or 5, adjust display
+            if (!state.isPro) {
+                if (stepNumber === 4) {
+                    currentStepDisplay = 3; // Show as step 3
+                    totalSteps = 4;
+                } else if (stepNumber === 5) {
+                    currentStepDisplay = 4; // Show as step 4
+                    totalSteps = 4;
+                }
+            }
+            
             const progressFill = document.getElementById('progressFill');
-            progressFill.style.width = `${(stepNumber / 5) * 100}%`;
+            progressFill.style.width = `${(currentStepDisplay / totalSteps) * 100}%`;
             
             // Update step indicator
-            document.getElementById('stepIndicator').textContent = `Step ${stepNumber} of 5`;
+            document.getElementById('stepIndicator').textContent = `Step ${currentStepDisplay} of ${totalSteps}`;
+            
+            // Update plan status
+            updatePlanStatus();
         }
         
         // Update state
@@ -239,18 +461,45 @@ function goToStep(stepNumber) {
         
         // Execute step-specific actions
         switch(stepNumber) {
+            case 1:
+                // Check email limit for free users
+                if (!state.isPro && state.emailsSent >= state.freeEmailLimit) {
+                    showUpgradePrompt(`You've used all ${state.freeEmailLimit} free emails. Upgrade to Pro for unlimited sending!`);
+                }
+                break;
             case 3:
-                buildMappingUI();
+                // Only show Step 3 for Pro users with variables
+                if (!state.isPro) {
+                    // Free users should not access this step
+                    console.log('Free users skip variable mapping');
+                } else {
+                    const mappingContainer = document.getElementById('mappingContainer');
+                    if (mappingContainer) {
+                        mappingContainer.classList.remove('feature-locked');
+                    }
+                    buildMappingUI();
+                }
                 break;
             case 4:
                 generatePersonalizedEmails();
                 displayEmailPreview();
+                
+                // Show warning if free user has more than limit
+                if (!state.isPro && state.uploadedData.length > state.freeEmailLimit) {
+                    showUpgradePrompt(`Your CSV has ${state.uploadedData.length} emails, but the free plan is limited to ${state.freeEmailLimit}. Only the first ${state.freeEmailLimit} will be processed. Upgrade to Pro for unlimited emails!`);
+                }
                 break;
             case 5:
                 // Initialize sending status if not already done
                 if (!state.sendingStatus.details) {
                     state.sendingStatus = { sent: 0, failed: 0, details: [] };
                 }
+                
+                // Show warning if free user has more than limit
+                if (!state.isPro && state.uploadedData.length > state.freeEmailLimit) {
+                    showUpgradePrompt(`Only ${state.freeEmailLimit} out of ${state.uploadedData.length} emails will be available to send on the free plan. Upgrade to Pro for unlimited sending!`);
+                }
+                
                 displayRecipientList();
                 updateSendingStats();
                 break;
@@ -271,6 +520,9 @@ function updateUI() {
     
     // Apply theme
     applyTheme();
+    
+    // Update plan status
+    updatePlanStatus();
     
     // Restore uploaded data
     if (state.uploadedData.length > 0) {
@@ -496,11 +748,14 @@ function detectVariables() {
             .join('');
         
         document.getElementById('detectedVariables').style.display = 'block';
-        document.getElementById('step2Next').disabled = false;
     } else {
+        state.detectedVariables = [];
         document.getElementById('detectedVariables').style.display = 'none';
-        document.getElementById('step2Next').disabled = true;
     }
+    
+    // Enable Next button if there's any content in subject or body
+    const hasContent = subject.trim().length > 0 || body.trim().length > 0;
+    document.getElementById('step2Next').disabled = !hasContent;
     
     saveState();
 }
@@ -661,21 +916,46 @@ function validateMapping() {
 // ============================================
 
 function generatePersonalizedEmails() {
-    state.personalizedEmails = state.uploadedData.map(row => {
+    // Limit data to free plan limit for non-Pro users
+    let dataToProcess = state.uploadedData;
+    if (!state.isPro && state.uploadedData.length > state.freeEmailLimit) {
+        dataToProcess = state.uploadedData.slice(0, state.freeEmailLimit);
+    }
+    
+    state.personalizedEmails = dataToProcess.map(row => {
         let subject = state.emailSubject;
         let body = state.emailBody;
         
-        // Replace all variables with actual data
-        state.detectedVariables.forEach(variable => {
-            const column = state.variableMapping[variable];
-            const value = row[column] || `[${variable}]`;
-            const regex = new RegExp(`\\[${variable}\\]`, 'g');
-            subject = subject.replace(regex, value);
-            body = body.replace(regex, value);
-        });
+        // Replace all variables with actual data (only if there are variables)
+        if (state.detectedVariables.length > 0) {
+            state.detectedVariables.forEach(variable => {
+                const column = state.variableMapping[variable];
+                if (column) {
+                    const value = row[column] || `[${variable}]`;
+                    const regex = new RegExp(`\\[${variable}\\]`, 'g');
+                    subject = subject.replace(regex, value);
+                    body = body.replace(regex, value);
+                }
+            });
+        }
+        
+        // Try to find email field for recipient
+        let recipientEmail = 'N/A';
+        const emailFields = ['Email', 'email', 'EMAIL', 'e-mail', 'E-mail'];
+        for (const field of emailFields) {
+            if (row[field]) {
+                recipientEmail = row[field];
+                break;
+            }
+        }
+        
+        // If variable mapping exists and has Email mapped, use that
+        if (state.variableMapping['Email']) {
+            recipientEmail = row[state.variableMapping['Email']] || recipientEmail;
+        }
         
         return {
-            recipient: row[state.variableMapping['Email']] || row['Email'] || row['email'] || 'N/A',
+            recipient: recipientEmail,
             subject: subject,
             body: body,
             originalRow: row
@@ -747,6 +1027,12 @@ function displayRecipientList() {
         });
     });
 }function toggleEmailStatus(index) {
+    // Check if status tracking is allowed
+    if (!state.isPro) {
+        showUpgradePrompt('Full status tracking is a Pro feature. Upgrade to unlock!');
+        return;
+    }
+    
     if (!state.sendingStatus.details[index]) {
         state.sendingStatus.details[index] = { status: 'pending' };
     }
@@ -782,6 +1068,11 @@ function updateSendingStats() {
 }
 
 async function startSending() {
+    // Check if user can send emails
+    if (!checkFeatureAccess('unlimitedSending')) {
+        return;
+    }
+    
     const startBtn = document.getElementById('startSending');
     const progressContainer = document.getElementById('sendingProgress');
     const reportContainer = document.getElementById('sendingReport');
@@ -806,6 +1097,13 @@ async function startSending() {
 
     try {
         await openEmailClient(email);
+        
+        // Increment email counter for free users
+        if (!state.isPro) {
+            state.emailsSent++;
+            updatePlanStatus();
+        }
+        
         // Don't automatically mark as sent - let user do it manually
         displayRecipientList();
         updateSendingStats();
